@@ -1,0 +1,4 @@
+services:
+  duckdb:
+    build: .
+    tty: true
