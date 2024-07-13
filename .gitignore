@@ -4,3 +4,4 @@
 .vscode
 profiles.yml
 .DS_Store
+parquet

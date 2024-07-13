@@ -27,6 +27,7 @@ class Votes:
 @define(frozen=True)
 class Genre:
     name: str
+    slug: str
 
 
 @define(frozen=True)
@@ -58,6 +59,11 @@ class MovieQuery(AttrsInstance):
     selectFields: List = [f.name for f in fields(Movie)]
 
 
+@define(frozen=True)
+class PossibleValues(AttrsInstance):
+    field: str
+
+
 class NewMovieQuery(MovieQuery):
     createdAt: str = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
     updatedAt: str = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
@@ -68,18 +74,22 @@ class KinopoiskApiClient:
 
     def __init__(self):
         self._api_key = os.environ.get('kp_key')
-        self._api_version = 'v1.4'
         self.base_url = 'https://api.kinopoisk.dev'
+
+    def get_possible_genres(self) -> List[Genre]:
+        endpoint = 'movie/possible-values-by-field'
+        if genres := self._get(endpoint, PossibleValues(field='genres.name'), 'v1'):
+            return [Genre(**genre) for genre in genres]
 
     @cached_property
     def _session(self):
         session = requests.session()
-        session.headers = {'X-API-KEY': self._api_key}
+        session.headers = {'X-API-KEY': self._api_key, "accept": "application/json"}
         return session
 
-    def _get(self, endpoint):
-        url = f"{self.base_url}/{self._api_version}/{endpoint}"
-        response = self._session.get(url, params=attrs.asdict(MovieQuery()))
+    def _get(self, endpoint, query_params: attrs.Factory, api_version: str = 'v1.4'):
+        url = f"{self.base_url}/{api_version}/{endpoint}"
+        response = self._session.get(url, params=attrs.asdict(query_params))
         try:
             response.raise_for_status()
         except requests.RequestException as exc:
@@ -94,7 +104,7 @@ class KinopoiskApiClient:
     def get_movie(self) -> List[Movie]:
         endpoint = 'movie'
         movies = []
-        if raw_movies := self._get(endpoint):
+        if raw_movies := self._get(endpoint, MovieQuery()):
             movies.extend([Movie(**movie) for movie in raw_movies.get("docs")])
             return movies
 
@@ -110,5 +120,4 @@ class KinopoiskApiClient:
 
 # Usage example
 if __name__ == "__main__":
-    unpack_fields(Movie)
-    print(1)
+    ...
