@@ -2,39 +2,13 @@ import attrs
 from typing import List
 from datetime import datetime
 from cassandra.cluster import Cluster
-from cassandra.cqlengine import connection, management, columns
-from cassandra.cqlengine import models
+from cassandra.cqlengine import connection, management, models
 from cassandra.cqlengine.query import BatchQuery
-
-
-class Genre(models.Model):
-    __table_name__ = 'genre'
-    name = columns.Text(primary_key=True)
-    slug = columns.Text()
-
-
-class User(models.Model):
-    __table_name__ = 'user'
-    id = columns.UUID(primary_key=True)
-    name = columns.Text()
-
-
-class RecommendedMovie(models.Model):
-    __table_name__ = 'recommended_movie'
-    user_id = columns.Text(primary_key=True)
-    id = columns.Integer(primary_key=True)
-    description = columns.Text()
-    kp_url = columns.Text()
-    name = columns.Text()
-    # rating = columns.Map(key_type=columns.Text, value_type=columns.Float)
-    movieLength = columns.Integer()
-    year = columns.Integer()
-    # votes = columns.Map(key_type=columns.Text, value_type=columns.Float)
-    # genres = columns.List(value_type=columns.Map(key_type=columns.Text, value_type=columns.Text))
+from models import ScyllaGenre, ScyllaUser,  ScyllaRecommendedMovie
 
 
 class KinopoiskScyllaDB:
-    scylla_models = [Genre, User, RecommendedMovie]
+    scylla_models = [ScyllaGenre, ScyllaUser, ScyllaRecommendedMovie]
     ks_name = 'kinopoisk'
     connection_name = 'kinopoisk-connection'
 
@@ -58,11 +32,7 @@ class KinopoiskScyllaDB:
     def _drop_table(self, model: models.BaseModel):
         management.drop_table(keyspaces=[self.ks_name], connections=[self.connection_name], model=model)
 
-    def get_collection_elements(self, model: models.BaseModel):
+    @staticmethod
+    def get_collection_elements(model: models.BaseModel):
         for element in model.objects.all():
             yield element
-
-
-if __name__ == '__main__':
-    k = KinopoiskScyllaDB()
-    k._drop_table(RecommendedMovie)

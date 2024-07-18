@@ -2,81 +2,9 @@ import os
 
 import attrs
 import requests
-from attrs import define, AttrsInstance, fields
-from datetime import datetime, timedelta
 from functools import cached_property
-from typing import List, Optional
-
-
-@define(frozen=True)
-class Rating:
-    kp: float
-    imdb: Optional[float] = None
-    filmCritics: Optional[float] = None
-    russianFilmCritics: Optional[float] = None
-
-
-@define(frozen=True)
-class Votes:
-    kp: int
-    imdb: int
-    filmCritics: int
-    russianFilmCritics: int
-
-
-@define(frozen=True)
-class Genre:
-    name: str
-    slug: str = None
-
-
-@define(frozen=True, kw_only=True)
-class User:
-    id: str
-    preferred_genres: List[Genre.name]
-    min_movies_rating: Rating
-
-
-@define(frozen=True, kw_only=True)
-class Movie(AttrsInstance):
-    id: int
-    name: str
-    alternativeName: str
-    enName: str
-    year: int
-    description: str
-    shortDescription: str
-    status: str
-    rating: Rating
-    votes: Votes
-    movieLength: int
-    ratingMpaa: str
-    genres: List[Genre] = None
-
-
-@define(frozen=True, kw_only=True)
-class RecommendedMovie(Movie):
-    user_id: User.id
-    kp_url: str
-
-
-@define()
-class MovieQuery(AttrsInstance):
-    type: str = "movie"
-    page: int = 1
-    limit: int = 10
-    isSeries: str = "false"
-    selectFields: List = [f.name for f in fields(Movie) if f.name not in ("kp_url")]
-
-
-@define(frozen=True)
-class PossibleValues(AttrsInstance):
-    field: str
-
-
-class NewMovieQuery(MovieQuery):
-    createdAt: str = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
-    updatedAt: str = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
+from typing import List
+from models import Rating, Genre, PossibleValues, User, RecommendedMovie, MovieQuery
 
 
 def _assign_rating(rating: Rating):
