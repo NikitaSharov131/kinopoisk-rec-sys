@@ -1,154 +1,78 @@
-from typing import List
-from attrs import define
-import logging
-from typing import Dict
-from scylla import KinopoiskScyllaDB
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    filters,
+import telebot
+from telebot import types
+import os
+from search import KinopoiskSearch
+from models import User
+import uuid
+from functools import lru_cache
 
-)
+bot = telebot.TeleBot(os.environ.get("TOKEN"))
 
+welcome = """ Привет! Я могу помочь тебе в поиске новых фильмов. Пиши /start чтобы начать... """
 
-@define(frozen=True)
-class User:
-    id: int
-    preferred_categories: List[str]
+start_command = '/start'
+movie_command = '/movie'
+commands = [start_command, movie_command]
+user = User()
 
 
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-# set higher logging level for httpx to avoid all GET and POST requests being logged
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
-logger = logging.getLogger(__name__)
-
-CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
-
-reply_keyboard = [
-    ["Age", "Favourite colour"],
-    ["Number of siblings"],
-    ["Done"],
-]
-markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+@lru_cache(maxsize=None)
+def get_genres():
+    return KinopoiskSearch().collect_genres()
 
 
-def facts_to_str(user_data: Dict[str, str]) -> str:
-    """Helper function for formatting the gathered user info."""
-    facts = [f"{key} - {value}" for key, value in user_data.items()]
-    return "\n".join(facts).join(["\n", "\n"])
+def process_user_rating():
+    ...
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Start the conversation and ask user for input."""
-    await update.message.reply_text(
-        "Привет! Я буду присылать тебе фильмы каждый день на основе твоих предпочтений.",
-        reply_markup=markup,
-    )
-
-    return CHOOSING
-
-
-async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Ask the user for info about the selected predefined choice."""
-    text = update.message.text
-    context.user_data["choice"] = text
-    await update.message.reply_text(f"Your {text.lower()}? Yes, I would love to hear about that!")
-
-    return TYPING_REPLY
+def process_genre(message):
+    if message.text in get_genres():
+        user.preferred_genres = message.text
+        bot.register_next_step_handler(message, process_user_rating)
+    else:
+        bot.send_message(message.chat.id, "Пожалуйста, укажи жанр из доступных...")
+        bot.register_next_step_handler(message, process_genre)
 
 
-async def custom_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Ask the user for a description of a custom category."""
-    await update.message.reply_text(
-        'Alright, please send me the category first, for example "Most impressive skill"'
-    )
-
-    return TYPING_CHOICE
-
-
-async def received_information(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store info provided by user and ask for the next category."""
-    user_data = context.user_data
-    text = update.message.text
-    category = user_data["choice"]
-    user_data[category] = text
-    del user_data["choice"]
-
-    await update.message.reply_text(
-        "Neat! Just so you know, this is what you already told me:"
-        f"{facts_to_str(user_data)}You can tell me more, or change your opinion"
-        " on something.",
-        reply_markup=markup,
-    )
-
-    return CHOOSING
+@bot.message_handler(content_types='text')
+def handle_text(message):
+    if message.text not in commands:
+        reply_message = 'Привет! Для того чтобы начать начать получать рекомендации от меня, введи /start'
+        bot.send_message(message.chat.id, reply_message)
+    elif message.text == start_command:
+        handle_start(message)
 
 
-async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Display the gathered info and end the conversation."""
-    user_data = context.user_data
-    if "choice" in user_data:
-        del user_data["choice"]
-
-    await update.message.reply_text(
-        f"I learned these facts about you: {facts_to_str(user_data)}Until next time!",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
-    user_data.clear()
-    return ConversationHandler.END
+def save_chat_id(chat_id):
+    return False, {}
 
 
-def main() -> None:
-    """Run the bot."""
-    # Create the Application and pass it your bot's token.
-    from os import environ
-    application = Application.builder().token(environ.get("TOKEN")).build()
-    scylla  = KinopoiskScyllaDB()
-    scylla.get_collection_elements()
-    # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
-    button_list = [
-        InlineKeyboardButton("col1", callback_data=...),
-        InlineKeyboardButton("col2", callback_data=...),
-        InlineKeyboardButton("row 2", callback_data=...)
-    ]
-    reply_markup = InlineKeyboardMarkup(util.build_menu(button_list, n_cols=2))
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            CHOOSING: [
-                MessageHandler(
-                    filters.Regex("^(Age|Favourite colour|Number of siblings)$"), regular_choice
-                )
-            ],
-            TYPING_CHOICE: [
-                MessageHandler(
-                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), regular_choice
-                )
-            ],
-            TYPING_REPLY: [
-                MessageHandler(
-                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")),
-                    received_information,
-                )
-            ],
-        },
-        fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
-    )
+# добавить случай когда введен просто текст
 
-    application.add_handler(conv_handler)
-
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+@bot.message_handler(commands=['start'])
+def handle_start(message):  # переписать на апи
+    user_id = message.from_user.id if message.from_user.id else uuid.uuid4()
+    user.id = user_id
+    user.name = message.from_user.username
+    exist, params = save_chat_id(user)
+    user_name = message.chat.username
+    if exist:
+        reply = (f'Привет, {user_name}. Рад, что ты снова тут.'
+                 f' Сейчас я отправляю тебе фильмы cо следующими параметрами {params}')
+    else:
+        reply = 'Привет! Давай выберем жанры фильмов, которые тебе нравятся'
+    markup = types.ReplyKeyboardMarkup()
+    genres = get_genres()
+    # запускать обработку пока текст не будет включать одну из команд или пока не будет включать жанр фильма
+    for i in range(0, len(genres) - 1, 2):
+        markup.add(types.KeyboardButton(genres[i].name), types.KeyboardButton(genres[i + 1].name))
+    bot.send_message(message.chat.id, reply)
+    # bot.register_next_step_handler(message, process_genre)
 
 
-if __name__ == "__main__":
-    main()
+@bot.message_handler(func=lambda m: True, content_types=['new_chat_participant'])
+def new_chat(message):
+    bot.reply_to(message, welcome)
+
+
+bot.infinity_polling()

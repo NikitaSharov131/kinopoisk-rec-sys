@@ -52,11 +52,13 @@ class Genre:
     slug: str = None
 
 
-@define(frozen=True, kw_only=True)
+@define(kw_only=True)
 class User:
-    id: str
-    preferred_genres: List[Genre.name]
-    min_movies_rating: Rating
+    id: str = None
+    name: str = None
+    preferred_genres: List[Genre.name] = None
+    chat_id: str = None
+    min_movies_rating: Rating = None
 
 
 @define(frozen=True, kw_only=True)

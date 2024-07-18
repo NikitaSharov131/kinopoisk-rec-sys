@@ -1,5 +1,6 @@
 from kinopoisk_rec_sys.api_client import KinopoiskApiClient, Genre, User, Rating
-from kinopoisk_rec_sys.scylla import KinopoiskScyllaDB, Genre as ScyllaGenre, RecommendedMovie
+from kinopoisk_rec_sys.scylla import KinopoiskScyllaDB
+from models import ScyllaGenre, RecommendedMovie
 from typing import List
 
 
