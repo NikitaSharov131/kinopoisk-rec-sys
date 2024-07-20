@@ -1,4 +1,6 @@
 # Kinopoisk Recommendation System
+![Kinopoisk Logo](https://akuaktor.com/wp-content/uploads/2020/04/Taxi-Driver-3.jpg)
+
 
 Этот проект представляет собой систему рекомендаций для фильмов на основе данных с Кинопоиска.
 
