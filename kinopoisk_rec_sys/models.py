@@ -91,7 +91,7 @@ class RecommendedMovie(Movie):
 class MovieQuery(AttrsInstance):
     type: str = "movie"
     page: int = 1
-    limit: int = 50
+    limit: int = 25
     isSeries: str = "false"
     selectFields: List = [f.name for f in fields(Movie) if f.name not in ("kp_url")]
 

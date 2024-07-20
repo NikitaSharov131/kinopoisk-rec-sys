@@ -3,10 +3,11 @@ import json
 import telebot
 from telebot import types
 import os
-from search import KinopoiskSearch
-from models import User, Rating, RecommendedMovie
+import requests
+from models import User, Rating, RecommendedMovie, Genre
 import uuid
 from functools import lru_cache
+import attrs
 from typing import List
 
 bot = telebot.TeleBot(os.environ.get("TOKEN"))
@@ -17,22 +18,57 @@ commands = [start_command, movie_command]
 welcome = ('Привет! Давай выберем жанры фильмов, которые тебе нравятся.'
            '\nЯ повторно не посоветую тебе уже ранее порекомендованный фильм.')
 
+kp_rec_sys_base_url = 'http://127.0.0.1:8000'
+
+
+def get(endpoint, query_params: dict = None):
+    url = f"{kp_rec_sys_base_url}/{endpoint}"
+    response = requests.get(url, params=query_params)
+    try:
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise exc
+    return response.json()
+
 
 @lru_cache(maxsize=None)
 def get_genres():
-    return KinopoiskSearch().collect_genres()
+    response = get('genres')
+    return [Genre(**genre) for genre in response['genres']]
 
 
-def show_rec_movie(message, user, recs, recs_hist: List[int] = None):
+def is_user_exist(user: User):
+    response = get(f'user/{user.id}')
+    return [User(**u) for u in response.get("user_id")]
+
+
+def get_recs(user: User):
+    url = f"{kp_rec_sys_base_url}/recs"
+    user.min_movies_rating = user.min_movies_rating.kp
+    response = requests.post(url, data=json.dumps(attrs.asdict(user)))
+    user.min_movies_rating = Rating(kp=user.min_movies_rating)
+    return [RecommendedMovie(**r) for r in response.json().get("recs")]
+
+
+def get_recommended_movie(user: User):
+    response = get(f"recs/{user.id}")
+    return response.json()
+
+
+def swipe_next_movie(message, recs: List):
+    bot.send_message(message.chat.id, string_rec_repr(recs.pop()), parse_mode='Markdown')
+    markup = types.ReplyKeyboardMarkup()
+    markup.add(types.KeyboardButton("Еще!"), types.KeyboardButton("Конец"), types.KeyboardButton("Сменить жанр"))
+    bot.send_message(message.chat.id, "Хочешь еще?", reply_markup=markup)
+    return message
+
+
+def show_rec_movie(message, user, recs):
     if message.text == 'Еще!' or message.text == 'Да!':
         if not recs:
-            recs = KinopoiskSearch().get_recs(user, recs_hist)
-            recs_hist = KinopoiskSearch().recommended_movie(user.id)
-        bot.send_message(message.chat.id, string_rec_repr(recs.pop()), parse_mode='Markdown')
-        markup = types.ReplyKeyboardMarkup()
-        markup.add(types.KeyboardButton("Еще!"), types.KeyboardButton("Конец"), types.KeyboardButton("Сменить жанр"))
-        bot.send_message(message.chat.id, "Хочешь еще?", reply_markup=markup)
-        bot.register_next_step_handler(message, show_rec_movie, user, recs, recs_hist)
+            recs = get_recs(user)
+        swipe_next_movie(message, recs)
+        bot.register_next_step_handler(message, show_rec_movie, user, recs)
     elif message.text == 'Сменить жанр':
         markup = create_genre_markup()
         bot.send_message(message.chat.id, welcome, reply_markup=markup)
@@ -45,18 +81,15 @@ def show_rec_movie(message, user, recs, recs_hist: List[int] = None):
 
 
 def string_rec_repr(rec: RecommendedMovie):
-    return f" Картина: [{rec.name}]({rec.kp_url}) \nДата выхода {rec.year} \nРейтинг {rec.rating.kp}"
+    return f" Картина: [{rec.name}]({rec.kp_url}) \nДата выхода {rec.year} \nРейтинг {rec.rating}"
 
 
 def process_user_rating(message, user):
     rating = message.text.replace(",", ".")
     if rating.replace(".", "").isdigit() and (0 < float(rating) < 10):
         user.min_movies_rating = Rating(kp=round(float(rating), 2))
-        recs = KinopoiskSearch().get_recs(user)
-        bot.send_message(message.chat.id, string_rec_repr(recs.pop()), parse_mode='Markdown')
-        markup = types.ReplyKeyboardMarkup()
-        markup.add(types.KeyboardButton("Еще!"), types.KeyboardButton("Конец"), types.KeyboardButton("Сменить жанр"))
-        bot.send_message(message.chat.id, "Хочешь еще?", reply_markup=markup)
+        recs = get_recs(user)
+        swipe_next_movie(message, recs)
         bot.register_next_step_handler(message, show_rec_movie, user, recs)
     else:
         msg = bot.reply_to(message, 'Пожалуйста, укажи рейтинг корректно '
@@ -96,7 +129,7 @@ def handle_text(message):
 
 
 @bot.message_handler(commands=['movie'])
-def handle_movie(message, user: User, history_recs: List = None):
+def handle_movie(message, user: User):
     if user:
         reply = (f'Привет, {user.name}. Рад, что ты снова тут.'
                  f'\nЯ отправляю тебе рекомендации из жанра "{user.preferred_genre}".'
@@ -104,26 +137,19 @@ def handle_movie(message, user: User, history_recs: List = None):
         markup = types.ReplyKeyboardMarkup()
         markup.add(types.KeyboardButton("Да!"), types.KeyboardButton("Сменить жанр"))
         bot.send_message(message.chat.id, reply, reply_markup=markup)
-        bot.register_next_step_handler(message, show_rec_movie, user, [], history_recs)
+        bot.register_next_step_handler(message, show_rec_movie, user, [])
     else:
         handle_text(message)
-
-
-def is_user_id_exist(user_id):
-    user = KinopoiskSearch().is_user_exist(user_id)
-    if user:
-        user = User(**user.pop())
-        user.min_movies_rating = Rating(kp=user.min_movies_rating)
-        return user
 
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user = User(id=message.from_user.id if message.from_user.id else uuid.uuid4(),
                 name=message.from_user.username, chat_id=message.chat.id)
-    if hist_user := is_user_id_exist(user.id):
-        history_recs = KinopoiskSearch().recommended_movie(user.id)
-        handle_movie(message, hist_user, history_recs)
+    if hist_user := is_user_exist(user):
+        hist_user = hist_user.pop()
+        hist_user.min_movies_rating = Rating(kp=hist_user.min_movies_rating)
+        handle_movie(message, hist_user)
         return
     markup = create_genre_markup()
     bot.send_message(message.chat.id, welcome, reply_markup=markup)

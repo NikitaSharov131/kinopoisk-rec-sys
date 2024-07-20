@@ -3,8 +3,8 @@ import os
 import attrs
 import requests
 from functools import cached_property
-from typing import List
-from models import Rating, Genre, PossibleValues, User, RecommendedMovie, MovieQuery
+from typing import List, Set, Dict
+from kinopoisk_rec_sys.models import Rating, Genre, PossibleValues, User, MovieQuery
 
 
 def _assign_rating(rating: Rating):
@@ -41,7 +41,7 @@ class KinopoiskApiClient:
             raise exc
         return response.json()
 
-    def get_movie(self, user: User, id_recommended: List[int] = None) -> List[RecommendedMovie]:
+    def get_movie(self, user: User, id_recommended: Set[int] = None) -> List[Dict]:
         endpoint = 'movie'
         query = attrs.asdict(MovieQuery())
         query['genres.name'] = user.preferred_genre
@@ -51,9 +51,7 @@ class KinopoiskApiClient:
         movies = []
         if raw_movies := self._get(endpoint, query):
             for movie in raw_movies.get("docs"):
-                movie["rating"] = Rating(kp=movie.get("rating", {}).get("kp"))
-                movies.append(RecommendedMovie(**movie,
-                                               **{"kp_url": f"{self.base_kp_url}/{movie.get('id')}",
-                                                  "user_id": user.id}))
+                movie["rating"] = movie.get("rating", {}).get("kp")
+                movies.append({**movie, **{"kp_url": f"{self.base_kp_url}/{movie.get('id')}",
+                                           "user_id": user.id}})
         return movies
-
