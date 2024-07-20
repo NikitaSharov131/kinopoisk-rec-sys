@@ -12,22 +12,25 @@ class ScyllaGenre(models.Model):
 
 class ScyllaUser(models.Model):
     __table_name__ = 'user'
-    id = columns.UUID(primary_key=True)
+    id = columns.Integer(primary_key=True)
     name = columns.Text()
+    preferred_genre = columns.Text()
+    chat_id = columns.Integer()
+    min_movies_rating = columns.Float()
 
 
 class ScyllaRecommendedMovie(models.Model):
     __table_name__ = 'recommended_movie'
-    user_id = columns.Text(primary_key=True)
+    user_id = columns.Integer(primary_key=True)
     id = columns.Integer(primary_key=True)
     description = columns.Text()
     kp_url = columns.Text()
     name = columns.Text()
+    genres = columns.List(value_type=columns.Map(key_type=columns.Text, value_type=columns.Text))
     # rating = columns.Map(key_type=columns.Text, value_type=columns.Float)
     movieLength = columns.Integer()
     year = columns.Integer()
     # votes = columns.Map(key_type=columns.Text, value_type=columns.Float)
-    # genres = columns.List(value_type=columns.Map(key_type=columns.Text, value_type=columns.Text))
 
 
 @define(frozen=True)
@@ -56,7 +59,7 @@ class Genre:
 class User:
     id: str = None
     name: str = None
-    preferred_genres: List[Genre.name] = None
+    preferred_genre: Genre.name = None
     chat_id: str = None
     min_movies_rating: Rating = None
 
@@ -75,7 +78,7 @@ class Movie(AttrsInstance):
     votes: Votes
     movieLength: int
     ratingMpaa: str
-    genres: List[Genre] = None
+    genres: List[Genre]
 
 
 @define(frozen=True, kw_only=True)
@@ -88,7 +91,7 @@ class RecommendedMovie(Movie):
 class MovieQuery(AttrsInstance):
     type: str = "movie"
     page: int = 1
-    limit: int = 10
+    limit: int = 50
     isSeries: str = "false"
     selectFields: List = [f.name for f in fields(Movie) if f.name not in ("kp_url")]
 

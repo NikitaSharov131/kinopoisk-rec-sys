@@ -1,6 +1,6 @@
 from kinopoisk_rec_sys.api_client import KinopoiskApiClient, Genre, User, Rating
 from kinopoisk_rec_sys.scylla import KinopoiskScyllaDB
-from models import ScyllaGenre, RecommendedMovie
+from models import ScyllaGenre, ScyllaRecommendedMovie, ScyllaUser
 from typing import List
 
 
@@ -17,12 +17,22 @@ class KinopoiskSearch:
             self._scylla.insert_collection(genres, ScyllaGenre)
         return [Genre(**genre) for genre in genres]
 
-    def start_search(self):
-        user = User(id="12312333123123", preferred_genres=[Genre(name="драма").name], min_movies_rating=Rating(kp=8.1))
-        recommended_movies = self._api.get_movie(user)
-        self._scylla.insert_collection(recommended_movies, RecommendedMovie)
+    def get_recs(self, user: User, recs_history: List[int] = None):
+        recs = self._api.get_movie(user, recs_history)
+        user.min_movies_rating = user.min_movies_rating.kp
+        self._scylla.insert_collection([user], ScyllaUser)
+        user.min_movies_rating = Rating(kp=user.min_movies_rating)
+        self._scylla.insert_collection(recs, ScyllaRecommendedMovie)
+        return recs
+
+    def is_user_exist(self, user_id):
+        return [u for u in self._scylla.filter_collection(ScyllaUser, 'id', user_id)]
+
+    def recommended_movie(self, user_id):
+        recs = self._scylla.filter_collection(ScyllaRecommendedMovie, 'user_id', user_id)
+        return set(rec.id for rec in recs)
 
 
 if __name__ == '__main__':
     k = KinopoiskSearch()
-    k.start_search()
+

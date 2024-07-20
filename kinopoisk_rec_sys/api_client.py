@@ -41,31 +41,19 @@ class KinopoiskApiClient:
             raise exc
         return response.json()
 
-    def get_movie_details(self, movie_id):
-        endpoint = f"movie/{movie_id}"
-        return self._get(endpoint)
-
-    def get_movie(self, user: User) -> List[RecommendedMovie]:
+    def get_movie(self, user: User, id_recommended: List[int] = None) -> List[RecommendedMovie]:
         endpoint = 'movie'
         query = attrs.asdict(MovieQuery())
-        query['genres.name'] = user.preferred_genres
+        query['genres.name'] = user.preferred_genre
+        if id_recommended:
+            query['id'] = [f"!{kp_id}" for kp_id in id_recommended]
         query = {**query, **_assign_rating(user.min_movies_rating)}
+        movies = []
         if raw_movies := self._get(endpoint, query):
-            return [RecommendedMovie(**movie, **{"kp_url": f"{self.base_kp_url}/{movie.get('id')}", "user_id": user.id})
-                    for movie in raw_movies.get("docs")]
+            for movie in raw_movies.get("docs"):
+                movie["rating"] = Rating(kp=movie.get("rating", {}).get("kp"))
+                movies.append(RecommendedMovie(**movie,
+                                               **{"kp_url": f"{self.base_kp_url}/{movie.get('id')}",
+                                                  "user_id": user.id}))
+        return movies
 
-    def get_top_rated_movies(self, page=1):
-        endpoint = 'movie/top_rated'
-        return self._get(endpoint)
-
-    def get_popular_movies(self, page=1):
-        endpoint = 'movie/popular'
-        params = {'page': page}
-        return self._get(endpoint)
-
-
-# Usage example
-if __name__ == "__main__":
-    r = Rating(kp=10)
-    t = r.kp.__class__.__name__
-    print(t)
