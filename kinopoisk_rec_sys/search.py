@@ -1,8 +1,10 @@
 from fastapi import FastAPI
-from kinopoisk_rec_sys.api_client import KinopoiskApiClient, Genre, Rating
-from kinopoisk_rec_sys.scylla import KinopoiskScyllaDB
-from kinopoisk_rec_sys.models import ScyllaGenre, ScyllaRecommendedMovie, ScyllaUser
 from pydantic import BaseModel
+
+from kinopoisk_rec_sys.api_client import KinopoiskApiClient, Rating
+from kinopoisk_rec_sys.models import (ScyllaGenre, ScyllaRecommendedMovie,
+                                      ScyllaUser)
+from kinopoisk_rec_sys.scylla import KinopoiskScyllaDB
 
 app = FastAPI()
 api = KinopoiskApiClient()
@@ -38,10 +40,12 @@ async def get_recs(user: User):
 
 @app.get("/user/{user_id}")
 async def get_user_meta(user_id):
-    return {"user_id": [u for u in scylla.filter_collection(ScyllaUser, 'id', int(user_id))]}
+    return {
+        "user_id": [u for u in scylla.filter_collection(ScyllaUser, "id", int(user_id))]
+    }
 
 
 @app.get("/recs/{user_id}")
 def recommended_movie(user_id):
-    recs = scylla.filter_collection(ScyllaRecommendedMovie, 'user_id', int(user_id))
+    recs = scylla.filter_collection(ScyllaRecommendedMovie, "user_id", int(user_id))
     return set(rec.id for rec in recs)

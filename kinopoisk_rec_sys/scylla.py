@@ -1,39 +1,50 @@
 import os
+from datetime import datetime
+from typing import List
 
 import attrs
-from typing import List
-from datetime import datetime
 from cassandra.cluster import Cluster
-from cassandra.cqlengine import connection, management, models, statements, operators
+from cassandra.cqlengine import (connection, management, models, operators,
+                                 statements)
 from cassandra.cqlengine.query import BatchQuery
-from kinopoisk_rec_sys.models import ScyllaGenre, ScyllaUser, ScyllaRecommendedMovie
+
+from kinopoisk_rec_sys.models import (ScyllaGenre, ScyllaRecommendedMovie,
+                                      ScyllaUser)
 
 
 class KinopoiskScyllaDB:
     scylla_models = [ScyllaGenre, ScyllaUser, ScyllaRecommendedMovie]
-    ks_name = 'kinopoisk'
-    connection_name = 'kinopoisk-connection'
+    ks_name = "kinopoisk"
+    connection_name = "kinopoisk-connection"
 
     def __init__(self):
         self._session = Cluster([os.environ.get("SCYLLA_HOST")]).connect()
         connection.register_connection(self.connection_name, session=self._session)
-        management.create_keyspace_simple(self.ks_name, connections=[self.connection_name], replication_factor=1)
+        management.create_keyspace_simple(
+            self.ks_name, connections=[self.connection_name], replication_factor=1
+        )
         self._init_model()
 
     def _init_model(self):
         for model in self.scylla_models:
             model.__connection__ = self.connection_name
             model.__keyspace__ = self.ks_name
-            management.sync_table(model, keyspaces=[self.ks_name], connections=[self.connection_name])
+            management.sync_table(
+                model, keyspaces=[self.ks_name], connections=[self.connection_name]
+            )
 
-    def insert_collection(self, collection: List[attrs.Factory], model: models.BaseModel):
+    def insert_collection(
+        self, collection: List[attrs.Factory], model: models.BaseModel
+    ):
         model.__keyspace__, model.__connection__ = self.ks_name, self.connection_name
         with BatchQuery(timestamp=datetime.now(), connection=self.connection_name) as b:
             for element in collection:
                 model.batch(b).create(**element)
 
     def _drop_table(self, model: models.BaseModel):
-        management.drop_table(keyspaces=[self.ks_name], connections=[self.connection_name], model=model)
+        management.drop_table(
+            keyspaces=[self.ks_name], connections=[self.connection_name], model=model
+        )
 
     def get_collection_elements(self, model: models.BaseModel):
         model.__keyspace__, model.__connection__ = self.ks_name, self.connection_name
@@ -42,8 +53,8 @@ class KinopoiskScyllaDB:
 
     def filter_collection(self, model: models.BaseModel, column, column_value):
         model.__keyspace__, model.__connection__ = self.ks_name, self.connection_name
-        condition = statements.WhereClause(field=column, operator=operators.EqualsOperator(),
-                                           value=column_value)
+        condition = statements.WhereClause(
+            field=column, operator=operators.EqualsOperator(), value=column_value
+        )
         for element in model.objects.filter(condition).all():
             yield element
-

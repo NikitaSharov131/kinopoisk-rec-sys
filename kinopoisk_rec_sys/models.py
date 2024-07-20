@@ -1,17 +1,18 @@
-from cassandra.cqlengine import models, columns
-from attrs import define, AttrsInstance, fields
-from typing import List, Optional
 from datetime import datetime, timedelta
+from typing import List, Optional
+
+from attrs import AttrsInstance, define, fields
+from cassandra.cqlengine import columns, models
 
 
 class ScyllaGenre(models.Model):
-    __table_name__ = 'genre'
+    __table_name__ = "genre"
     name = columns.Text(primary_key=True)
     slug = columns.Text()
 
 
 class ScyllaUser(models.Model):
-    __table_name__ = 'user'
+    __table_name__ = "user"
     id = columns.Integer(primary_key=True)
     name = columns.Text()
     preferred_genre = columns.Text()
@@ -20,13 +21,15 @@ class ScyllaUser(models.Model):
 
 
 class ScyllaRecommendedMovie(models.Model):
-    __table_name__ = 'recommended_movie'
+    __table_name__ = "recommended_movie"
     user_id = columns.Integer(primary_key=True)
     id = columns.Integer(primary_key=True)
     description = columns.Text()
     kp_url = columns.Text()
     name = columns.Text()
-    genres = columns.List(value_type=columns.Map(key_type=columns.Text, value_type=columns.Text))
+    genres = columns.List(
+        value_type=columns.Map(key_type=columns.Text, value_type=columns.Text)
+    )
     # rating = columns.Map(key_type=columns.Text, value_type=columns.Float)
     movieLength = columns.Integer()
     year = columns.Integer()
