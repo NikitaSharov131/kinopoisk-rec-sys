@@ -25,3 +25,4 @@
     ```bash
     docker-compose up
     ```
+3. Перейдите по [ссылке](https://t.me/ScorsesesRetributionBot) , ведущей к Telegram боту
