@@ -23,7 +23,7 @@ class KinopoiskApiClient:
     def get_possible_genres(self) -> List[Genre]:
         endpoint = 'movie/possible-values-by-field'
         if genres := self._get(endpoint, attrs.asdict(PossibleValues(field='genres.name')), 'v1'):
-            return [Genre(**genre) for genre in genres]
+            return [g for g in genres if g['name'] != 'аниме']
 
     @cached_property
     def _session(self):

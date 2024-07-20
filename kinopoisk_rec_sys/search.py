@@ -20,7 +20,7 @@ class User(BaseModel):
 @app.get("/genres")
 async def get_genres():
     genres = scylla.get_collection_elements(ScyllaGenre)
-    if not genres:
+    if not [g for g in genres]:
         genres = api.get_possible_genres()
         scylla.insert_collection(genres, ScyllaGenre)
     return {"genres": genres}
