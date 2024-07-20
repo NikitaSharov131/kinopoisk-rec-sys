@@ -1,0 +1,46 @@
+version: "3.7"
+
+services:
+  scylla:
+    image: scylladb/scylla
+    volumes:
+      - /var/lib/scylla:/var/lib/scylla
+    ports:
+      - "9042:9042"
+      - "9160:9160"
+      - "9180:9180"
+      - "10000:10000"
+    networks:
+      - kp_network
+    restart: on-failure
+  kinopoisk_rec_sys_api:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    ports:
+      - "8000:8000"
+    networks:
+      - kp_network
+    environment:
+      SCYLLA_HOST: ${SCYLLA_HOST}
+      KP_KEY: ${KP_KEY}
+    depends_on:
+      scylla:
+        condition: service_started
+    restart: on-failure
+  kinopoisk_rec_sys_bot:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile_bot
+    networks:
+      - kp_network
+    environment:
+      REC_SYS_ENDPOINT: ${REC_SYS_ENDPOINT}
+      TOKEN_BOT: ${TOKEN_BOT}
+    depends_on:
+      kinopoisk_rec_sys_api:
+        condition: service_started
+    restart: on-failure
+networks:
+  kp_network:
+    name: custom_network

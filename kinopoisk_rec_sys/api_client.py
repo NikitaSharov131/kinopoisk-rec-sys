@@ -16,7 +16,7 @@ class KinopoiskApiClient:
     movie_meta = []
 
     def __init__(self):
-        self._api_key = os.environ.get('kp_key')
+        self._api_key = os.environ.get('KP_KEY')
         self.base_url = 'https://api.kinopoisk.dev'
         self.base_kp_url = 'https://www.kinopoisk.ru/film/'
 

@@ -1,3 +1,5 @@
+import os
+
 import attrs
 from typing import List
 from datetime import datetime
@@ -13,7 +15,7 @@ class KinopoiskScyllaDB:
     connection_name = 'kinopoisk-connection'
 
     def __init__(self):
-        self._session = Cluster().connect()
+        self._session = Cluster([os.environ.get("SCYLLA_HOST")]).connect()
         connection.register_connection(self.connection_name, session=self._session)
         management.create_keyspace_simple(self.ks_name, connections=[self.connection_name], replication_factor=1)
         self._init_model()
@@ -44,9 +46,4 @@ class KinopoiskScyllaDB:
                                            value=column_value)
         for element in model.objects.filter(condition).all():
             yield element
-
-
-if __name__ == '__main__':
-    k = KinopoiskScyllaDB()
-    k._drop_table(ScyllaRecommendedMovie)
 

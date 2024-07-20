@@ -10,7 +10,7 @@ from functools import lru_cache
 import attrs
 from typing import List
 
-bot = telebot.TeleBot(os.environ.get("TOKEN"))
+bot = telebot.TeleBot(os.environ.get("TOKEN_BOT"))
 
 start_command = '/start'
 movie_command = '/movie'
@@ -18,7 +18,7 @@ commands = [start_command, movie_command]
 welcome = ('Привет! Давай выберем жанры фильмов, которые тебе нравятся.'
            '\nЯ повторно не посоветую тебе уже ранее порекомендованный фильм.')
 
-kp_rec_sys_base_url = 'http://127.0.0.1:8000'
+kp_rec_sys_base_url = f'http://{os.environ.get("REC_SYS_ENDPOINT")}:8000'
 
 
 def get(endpoint, query_params: dict = None):
